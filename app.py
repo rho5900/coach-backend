@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import requests
 from llm import evaluate_coaching 
 from llm import classify_reflection, simulate_athlete_response
 from llm import evaluate_coaching, classify_reflection, simulate_athlete_response, score_reflection
@@ -46,6 +47,30 @@ def simulate():
     })
     
     return jsonify({"athlete_response": response})
+
+@app.route('/team_message', methods=['POST'])
+def team_message():
+    data = request.get_json()
+    avg_score = data.get("avgScore", 5)
+    summary = data.get("summary", "")
+
+    prompt = f"""
+You're a team sports coach trying to motivate your athletes.
+
+Team outlook: {summary}
+Average mood score: {avg_score}
+
+Write a short, encouraging message to the team:
+"""
+
+    res = requests.post(
+        "http://localhost:11434/api/generate",  # Or your Render LLM endpoint
+        json={"model": "mistral", "prompt": prompt, "stream": False}
+    )
+
+    return jsonify({ "message": res.json()["response"].strip() })
+
+
 
 @app.route("/evaluate", methods=["POST"])
 def evaluate():
