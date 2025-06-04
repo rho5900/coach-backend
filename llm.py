@@ -1,5 +1,3 @@
-# llm.py using Together.ai API (Fully Render-Compatible)
-
 import requests
 import re
 import os
@@ -7,6 +5,18 @@ import os
 TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
 TOGETHER_URL = "https://api.together.xyz/inference"
 MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
+
+
+def extract_text(data, default="Neutral"):
+    output = data.get("output")
+    if isinstance(output, str):
+        return output.strip()
+    if isinstance(output, dict):
+        return output.get("choices", [{}])[0].get("text", default).strip()
+    if "choices" in data:
+        return data["choices"][0].get("text", default).strip()
+    print("⚠️ Unexpected LLM output:", data)
+    return default
 
 
 def classify_reflection(message):
@@ -23,14 +33,7 @@ Your classification (just one word):
         headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
         json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 20}
     )
-
-    output = res.json().get("output", "Neutral")
-    if isinstance(output, str):
-        return output.strip()
-    else:
-        print("⚠️ Unexpected LLM output:", output)
-        return "Neutral"
-
+    return extract_text(res.json(), default="Neutral")
 
 
 def simulate_athlete_response(profile, chat_history):
@@ -57,9 +60,7 @@ Athlete:
         headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
         json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 60}
     )
-    data = res.json()
-    text = data.get("output") or data.get("choices", [{}])[0].get("text", "Sure.")
-    return text.strip()
+    return extract_text(res.json(), default="Sure.")
 
 
 def evaluate_coaching(profile, chat_history):
@@ -87,7 +88,7 @@ Feedback: <one sentence of constructive feedback>
         headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
         json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 80}
     )
-    return res.json().get("output", "Score: 7\nFeedback: Keep improving communication.").strip()
+    return extract_text(res.json(), default="Score: 7\nFeedback: Keep improving communication.")
 
 
 def score_reflection(message):
@@ -113,16 +114,10 @@ Score:
     )
 
     try:
-        # Safely extract from choices[0]["text"]
         data = res.json()
-        raw = data.get("output") or data.get("choices", [{}])[0].get("text", "5")
+        raw = extract_text(data, default="5")
         match = re.search(r'\b([1-9]|10)\b', raw)
         return int(match.group(1)) if match else 5
-
     except Exception as e:
         print("❌ Failed to parse score response:", e)
-        raw = "5"
-
-    print("🧠 Score Response Raw:", raw)
-    match = re.search(r'\b([1-9]|10)\b', raw)
-    return int(match.group(1)) if match else 5
+        return 5
