@@ -23,7 +23,14 @@ Your classification (just one word):
         headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
         json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 20}
     )
-    return res.json().get("output", "Neutral").strip()
+
+    output = res.json().get("output", "Neutral")
+    if isinstance(output, str):
+        return output.strip()
+    else:
+        print("⚠️ Unexpected LLM output:", output)
+        return "Neutral"
+
 
 
 def simulate_athlete_response(profile, chat_history):
