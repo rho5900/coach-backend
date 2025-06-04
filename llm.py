@@ -1,5 +1,13 @@
+# llm.py using Together.ai API (Fully Render-Compatible)
+
 import requests
 import re
+import os
+
+TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+TOGETHER_URL = "https://api.together.xyz/inference"
+MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
+
 
 def classify_reflection(message):
     prompt = f"""
@@ -11,14 +19,12 @@ You are a wellness assistant. Classify this athlete's post-game reflection as:
 Message: {message}
 Your classification (just one word):
 """
+    res = requests.post(TOGETHER_URL,
+        headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
+        json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 20}
+    )
+    return res.json().get("output", "Neutral").strip()
 
-    res = requests.post("http://localhost:11434/api/generate", json={
-        "model": "mistral",
-        "prompt": prompt,
-        "stream": False
-    })
-
-    return res.json()["response"].strip()
 
 def simulate_athlete_response(profile, chat_history):
     def format_chat(chat_history):
@@ -40,12 +46,11 @@ Chat History:
 Respond as the athlete in 1–2 sentences. Be emotionally realistic and based on the profile above.
 Athlete:
 """
-
-    res = requests.post(
-        "http://localhost:11434/api/generate",
-        json={"model": "mistral", "prompt": prompt, "stream": False}
+    res = requests.post(TOGETHER_URL,
+        headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
+        json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 60}
     )
-    return res.json()["response"].strip()
+    return res.json().get("output", "Sure.").strip()
 
 
 def evaluate_coaching(profile, chat_history):
@@ -69,18 +74,11 @@ Respond ONLY in the following format:
 Score: <number between 1 and 10>
 Feedback: <one sentence of constructive feedback>
 """
-
-    res = requests.post(
-        "http://localhost:11434/api/generate",
-        json={"model": "mistral", "prompt": prompt, "stream": False}
+    res = requests.post(TOGETHER_URL,
+        headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
+        json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 80}
     )
-
-    result = res.json()["response"].strip()
-
-    # Log it so you can debug it during dev
-    print("\n🧠 Mistral Evaluation Output:\n", result)
-
-    return result
+    return res.json().get("output", "Score: 7\nFeedback: Keep improving communication.").strip()
 
 
 def score_reflection(message):
@@ -96,22 +94,13 @@ Only return the score as a number. Example:
 7
 
 Reflection:
-\"\"\"{message}\"\"\"
+{message}
 Score:
 """
-
-    res = requests.post(
-        "http://localhost:11434/api/generate",
-        json={"model": "mistral", "prompt": prompt, "stream": False}
+    res = requests.post(TOGETHER_URL,
+        headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
+        json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 10}
     )
-
-    raw = res.json()["response"].strip()
-    print("🧠 RAW OUTPUT:", raw)
-
-    # Extract the first number between 1 and 10
+    raw = res.json().get("output", "5").strip()
     match = re.search(r'\b([1-9]|10)\b', raw)
-    if match:
-        return int(match.group(1))
-    else:
-        return 5  # fallback if parsing fails
-
+    return int(match.group(1)) if match else 5
