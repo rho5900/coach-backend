@@ -57,7 +57,9 @@ Athlete:
         headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
         json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 60}
     )
-    return res.json().get("output", "Sure.").strip()
+    data = res.json()
+    text = data.get("output") or data.get("choices", [{}])[0].get("text", "Sure.")
+    return text.strip()
 
 
 def evaluate_coaching(profile, chat_history):
@@ -112,7 +114,11 @@ Score:
 
     try:
         # Safely extract from choices[0]["text"]
-        raw = res.json().get("choices", [{}])[0].get("text", "5").strip()
+        data = res.json()
+        raw = data.get("output") or data.get("choices", [{}])[0].get("text", "5")
+        match = re.search(r'\b([1-9]|10)\b', raw)
+        return int(match.group(1)) if match else 5
+
     except Exception as e:
         print("❌ Failed to parse score response:", e)
         raw = "5"
