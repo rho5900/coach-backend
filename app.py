@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from llm import evaluate_coaching 
 from llm import classify_reflection, simulate_athlete_response
+from llm import evaluate_coaching, classify_reflection, simulate_athlete_response, score_reflection
 
 
 # Firebase setup
@@ -24,16 +25,9 @@ def reflect():
     data = request.get_json()
     message = data.get("message", "")
     sentiment = classify_reflection(message)
+    score = score_reflection(message)
 
-    # Save to Firestore
-    db.collection("reflections").add({
-        "athlete": "AthleteA",  # Hardcoded for now
-        "message": message,
-        "sentiment": sentiment,
-        "timestamp": firestore.SERVER_TIMESTAMP,
-    })
-
-    return jsonify({"sentiment": sentiment})
+    return jsonify({"sentiment": sentiment, "score": score})
 
 # Simulation endpoint (Stage 4)
 @app.route("/simulate", methods=["POST"])
