@@ -104,10 +104,19 @@ Reflection:
 {message}
 Score:
 """
+
     res = requests.post(TOGETHER_URL,
         headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
         json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 10}
     )
-    raw = res.json().get("output", "5").strip()
+
+    try:
+        # Safely extract from choices[0]["text"]
+        raw = res.json().get("choices", [{}])[0].get("text", "5").strip()
+    except Exception as e:
+        print("❌ Failed to parse score response:", e)
+        raw = "5"
+
+    print("🧠 Score Response Raw:", raw)
     match = re.search(r'\b([1-9]|10)\b', raw)
     return int(match.group(1)) if match else 5
