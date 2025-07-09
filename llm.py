@@ -38,7 +38,11 @@ Your classification (just one word):
 
 def simulate_athlete_response(profile, chat_history):
     def format_chat(chat_history):
-        return "\n".join(f"{msg['sender'].capitalize()}: {msg['message']}" for msg in chat_history)
+        return "\n".join(
+        f"Coach: {msg['message']}" if msg['sender'] == 'coach' else f"Athlete: {msg['message']}"
+        for msg in chat_history
+        if msg['sender'] in ('coach', 'athlete')
+    )
 
     prompt = f"""
 You are simulating a high school athlete chatting with their coach.
