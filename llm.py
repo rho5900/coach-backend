@@ -69,7 +69,15 @@ Athlete:
 
 def evaluate_coaching(profile, chat_history):
     def format_chat(chat_history):
-        return "\n".join(f"{msg['sender'].capitalize()}: {msg['message']}" for msg in chat_history)
+        lines = [f"{msg['sender'].capitalize()}: {msg['message']}" for msg in chat_history]
+        
+        last_speaker = chat_history[-1]["sender"].lower()
+        next_speaker = "athlete" if last_speaker == "coach" else "coach"
+        
+        lines.append(f"{next_speaker.capitalize()}:")  # <-- this is the key cue
+
+        return "\n".join(lines)
+
 
     prompt = f"""
 You are a coaching evaluator AI. Your job is to evaluate how well the coach supported the athlete in a conversation.
