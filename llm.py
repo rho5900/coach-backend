@@ -39,10 +39,10 @@ Your classification (just one word):
 def simulate_athlete_response(profile, chat_history):
     def format_chat(chat_history):
         return "\n".join(
-        f"Coach: {msg['message']}" if msg['sender'] == 'coach' else f"Athlete: {msg['message']}"
-        for msg in chat_history
-        if msg['sender'] in ('coach', 'athlete')
-    )
+            f"Coach: {msg['message']}" if msg['sender'] == 'coach' else f"Athlete: {msg['message']}"
+            for msg in chat_history
+            if msg['sender'] in ('coach', 'athlete')
+        )
 
     prompt = f"""
 You are simulating a high school athlete chatting with their coach.
@@ -60,11 +60,15 @@ Chat History:
 Respond as the athlete in 1–2 sentences. Be emotionally realistic and based on the profile above.
 Athlete:
 """
-    res = requests.post(TOGETHER_URL,
+    res = requests.post(
+        TOGETHER_URL,
         headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
         json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 60}
     )
-    return extract_text(res.json(), default="Sure.")
+    raw_response = extract_text(res.json(), default="Sure.")
+    # Only keep text before any "Coach:" (if present)
+    athlete_reply = raw_response.split("Coach:")[0].strip()
+    return athlete_reply
 
 
 def evaluate_coaching(profile, chat_history):
