@@ -73,5 +73,24 @@ def evaluate():
     result = evaluate_coaching(profile, chat_history)
     return jsonify({"evaluation": result})
 
+@app.route("/delete_account", methods=["POST"])
+def delete_account():
+    data = request.get_json()
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    # Only allow deletion if user is an athlete
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get()
+    if not user_doc.exists:
+        return jsonify({"success": False, "error": "User not found"}), 404
+
+    if user_doc.to_dict().get("role") != "athlete":
+        return jsonify({"success": False, "error": "Only athletes can delete their account"}), 403
+
+    user_ref.delete()
+    return jsonify({"success": True, "message": "Account deleted"})
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")
