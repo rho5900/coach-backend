@@ -4,7 +4,7 @@ import os
 
 TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
 TOGETHER_URL = "https://api.together.xyz/inference"
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 
 
 def extract_text(data, default="Neutral"):
