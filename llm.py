@@ -45,30 +45,46 @@ def simulate_athlete_response(profile, chat_history):
         )
 
     prompt = f"""
-You are simulating a high school athlete chatting with their coach.
+You are a high school athlete. Respond to your coach naturally in 1-2 sentences.
 
-Athlete Profile:
+Your profile:
 - Age: {profile.get('age', 'N/A')}
 - Sport: {profile.get('sport', 'N/A')}
 - Anxiety Level: {profile.get('anxiety_level', 'N/A')}
 - Motivation Level: {profile.get('motivation_level', 'N/A')}
 - Context: {profile.get('context', 'N/A')}
 
-Chat History:
+Conversation so far:
 {format_chat(chat_history)}
 
-Respond as the athlete in 1–2 sentences. Be emotionally realistic and based on the profile above.
-Athlete:
+IMPORTANT: Respond ONLY as the athlete. Do NOT include any instructions, explanations, or meta-text. Just give a natural response as if you're the athlete talking to your coach.
 """
+
     res = requests.post(
         TOGETHER_URL,
         headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
-        json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 60}
+        json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 100}
     )
-    raw_response = extract_text(res.json(), default="Sure.")
-    # Only keep text before any "Coach:" (if present)
-    athlete_reply = raw_response.split("Coach:")[0].strip()
-    return athlete_reply
+    raw_response = extract_text(res.json(), default="I'm doing okay, Coach.")
+    
+    # Clean up the response - remove any prompt instructions or extra text
+    athlete_reply = raw_response.strip()
+    
+    # Remove common AI instruction artifacts
+    athlete_reply = athlete_reply.replace("You are an AI assistant", "").replace("You are simulating", "")
+    athlete_reply = athlete_reply.replace("Remember to stay true to", "").replace("Athlete:", "")
+    athlete_reply = athlete_reply.replace("Coach:", "").replace("Respond as the athlete", "")
+    
+    # Take only the first sentence or two
+    sentences = athlete_reply.split('.')
+    if len(sentences) > 2:
+        athlete_reply = '. '.join(sentences[:2]) + '.'
+    
+    # Fallback if response is too short or contains instructions
+    if len(athlete_reply) < 10 or "AI" in athlete_reply or "assistant" in athlete_reply.lower():
+        athlete_reply = "I'm doing okay, Coach. Thanks for asking."
+    
+    return athlete_reply.strip()
 
 
 def evaluate_coaching(profile, chat_history):
