@@ -45,19 +45,19 @@ def simulate_athlete_response(profile, chat_history):
         )
 
     prompt = f"""
-You are a high school athlete. Respond to your coach naturally in 1-2 sentences.
+Role: You are simulating a high school athlete in a conversation with their coach.
 
-Your profile:
+Athlete Profile:
 - Age: {profile.get('age', 'N/A')}
 - Sport: {profile.get('sport', 'N/A')}
 - Anxiety Level: {profile.get('anxiety_level', 'N/A')}
 - Motivation Level: {profile.get('motivation_level', 'N/A')}
 - Context: {profile.get('context', 'N/A')}
 
-Conversation so far:
+Conversation:
 {format_chat(chat_history)}
 
-IMPORTANT: Respond ONLY as the athlete. Do NOT include any instructions, explanations, or meta-text. Just give a natural response as if you're the athlete talking to your coach.
+Task: Respond naturally as this athlete would speak to their coach. Keep it to 1-2 sentences. Do not include any role descriptions, instructions, or meta-commentary in your response.
 """
 
     res = requests.post(
@@ -72,9 +72,11 @@ IMPORTANT: Respond ONLY as the athlete. Do NOT include any instructions, explana
     
     # Remove common AI instruction artifacts and prompt leakage
     athlete_reply = athlete_reply.replace("You are an AI assistant", "").replace("You are simulating", "")
+    athlete_reply = athlete_reply.replace("You are a high school athlete", "").replace("You are a", "")
     athlete_reply = athlete_reply.replace("Remember to stay true to", "").replace("Athlete:", "")
     athlete_reply = athlete_reply.replace("Coach:", "").replace("Respond as the athlete", "")
     athlete_reply = athlete_reply.replace("Human:", "").replace("Assistant:", "")
+    athlete_reply = athlete_reply.replace("Role:", "").replace("Task:", "")
     
     # Remove third-person summaries and meta-commentary
     if "the athlete" in athlete_reply.lower() or "athlete is" in athlete_reply.lower():
@@ -91,7 +93,8 @@ IMPORTANT: Respond ONLY as the athlete. Do NOT include any instructions, explana
     # Remove any remaining instruction text
     instruction_patterns = [
         "Can you provide", "Can you give", "Here's a summary", "The athlete is",
-        "Based on the conversation", "To summarize", "In summary"
+        "Based on the conversation", "To summarize", "In summary", "You are a high school athlete",
+        "Role:", "Task:", "Athlete Profile:", "Conversation:"
     ]
     for pattern in instruction_patterns:
         if pattern in athlete_reply:
@@ -99,6 +102,10 @@ IMPORTANT: Respond ONLY as the athlete. Do NOT include any instructions, explana
             parts = athlete_reply.split(pattern)
             if len(parts) > 1:
                 athlete_reply = parts[0].strip()
+    
+    # Remove any remaining "Athlete:" prefixes that might have slipped through
+    if athlete_reply.startswith("Athlete:"):
+        athlete_reply = athlete_reply.replace("Athlete:", "").strip()
     
     # Take only the first sentence or two
     sentences = athlete_reply.split('.')
@@ -122,19 +129,19 @@ def simulate_coach_response(profile, chat_history):
         )
 
     prompt = f"""
-You are a supportive high school sports coach. Respond to your athlete naturally in 1-2 sentences.
+Role: You are simulating a supportive high school sports coach in a conversation with their athlete.
 
-Athlete profile:
+Athlete Profile:
 - Age: {profile.get('age', 'N/A')}
 - Sport: {profile.get('sport', 'N/A')}
 - Anxiety Level: {profile.get('anxiety_level', 'N/A')}
 - Motivation Level: {profile.get('motivation_level', 'N/A')}
 - Context: {profile.get('context', 'N/A')}
 
-Conversation so far:
+Conversation:
 {format_chat(chat_history)}
 
-IMPORTANT: Respond ONLY as the coach. Be supportive, encouraging, and professional. Do NOT include any instructions, explanations, or meta-text. Just give a natural response as if you're the coach talking to your athlete.
+Task: Respond naturally as this coach would speak to their athlete. Be supportive, encouraging, and professional. Keep it to 1-2 sentences. Do not include any role descriptions, instructions, or meta-commentary in your response.
 """
 
     res = requests.post(
@@ -149,9 +156,11 @@ IMPORTANT: Respond ONLY as the coach. Be supportive, encouraging, and profession
     
     # Remove common AI instruction artifacts and prompt leakage
     coach_reply = coach_reply.replace("You are an AI assistant", "").replace("You are simulating", "")
+    coach_reply = coach_reply.replace("You are a supportive high school sports coach", "").replace("You are a", "")
     coach_reply = coach_reply.replace("Remember to stay true to", "").replace("Coach:", "")
     coach_reply = coach_reply.replace("Athlete:", "").replace("Respond as the coach", "")
     coach_reply = coach_reply.replace("Human:", "").replace("Assistant:", "")
+    coach_reply = coach_reply.replace("Role:", "").replace("Task:", "")
     
     # Remove third-person summaries and meta-commentary
     if "the coach" in coach_reply.lower() or "coach is" in coach_reply.lower():
@@ -168,7 +177,8 @@ IMPORTANT: Respond ONLY as the coach. Be supportive, encouraging, and profession
     # Remove any remaining instruction text
     instruction_patterns = [
         "Can you provide", "Can you give", "Here's a summary", "The coach is",
-        "Based on the conversation", "To summarize", "In summary"
+        "Based on the conversation", "To summarize", "In summary", "You are a supportive high school sports coach",
+        "Role:", "Task:", "Athlete Profile:", "Conversation:"
     ]
     for pattern in instruction_patterns:
         if pattern in coach_reply:
@@ -176,6 +186,10 @@ IMPORTANT: Respond ONLY as the coach. Be supportive, encouraging, and profession
             parts = coach_reply.split(pattern)
             if len(parts) > 1:
                 coach_reply = parts[0].strip()
+    
+    # Remove any remaining "Coach:" prefixes that might have slipped through
+    if coach_reply.startswith("Coach:"):
+        coach_reply = coach_reply.replace("Coach:", "").strip()
     
     # Take only the first sentence or two
     sentences = coach_reply.split('.')
