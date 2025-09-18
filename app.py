@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 
-from llm import evaluate_coaching, classify_reflection, simulate_athlete_response, score_reflection
+from llm import evaluate_coaching, classify_reflection, simulate_athlete_response, simulate_coach_response, score_reflection
 
 # Firebase setup
 import firebase_admin
@@ -31,39 +31,29 @@ def simulate():
     data = request.get_json()
     profile = data.get("profile", {})
     chat_history = data.get("chat_history", [])
-    response = simulate_athlete_response(profile, chat_history)
+    
+    # Determine who should respond next based on the last message sender
+    if not chat_history:
+        # If no chat history, start with athlete response
+        response = simulate_athlete_response(profile, chat_history)
+        return jsonify({"athlete_response": response})
+    
+    last_sender = chat_history[-1].get("sender", "").lower()
+    
+    if last_sender == "coach":
+        # Coach just spoke, athlete should respond
+        response = simulate_athlete_response(profile, chat_history)
+        return jsonify({"athlete_response": response})
+    elif last_sender == "athlete":
+        # Athlete just spoke, coach should respond
+        response = simulate_coach_response(profile, chat_history)
+        return jsonify({"coach_response": response})
+    else:
+        # Fallback to athlete response
+        response = simulate_athlete_response(profile, chat_history)
+        return jsonify({"athlete_response": response})
 
-    db.collection("simulations").add({
-        "athlete_profile": profile,
-        "chat_history": chat_history,
-        "athlete_response": response,
-        "timestamp": firestore.SERVER_TIMESTAMP,
-    })
 
-    return jsonify({"athlete_response": response})
-
-# Mistral-based team message generation
-@app.route('/team_message', methods=['POST'])
-def team_message():
-    data = request.get_json()
-    avg_score = data.get("avgScore", 5)
-    summary = data.get("summary", "")
-
-    prompt = f"""
-You're a team sports coach trying to motivate your athletes.
-
-Team outlook: {summary}
-Average mood score: {avg_score}
-
-Write a short, encouraging message to the team:
-"""
-
-    res = requests.post(
-        "http://localhost:11434/api/generate",
-        json={"model": "mistral", "prompt": prompt, "stream": False}
-    )
-
-    return jsonify({ "message": res.json()["response"].strip() })
 
 @app.route("/evaluate", methods=["POST"])
 def evaluate():
@@ -80,17 +70,35 @@ def delete_account():
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
 
-    # Only allow deletion if user is an athlete
+    # Allow deletion for both athletes and coaches
     user_ref = db.collection("users").document(user_id)
     user_doc = user_ref.get()
     if not user_doc.exists:
         return jsonify({"success": False, "error": "User not found"}), 404
 
-    if user_doc.to_dict().get("role") != "athlete":
-        return jsonify({"success": False, "error": "Only athletes can delete their account"}), 403
+    user_data = user_doc.to_dict()
+    user_role = user_data.get("role")
+    
+    if user_role not in ["athlete", "coach"]:
+        return jsonify({"success": False, "error": "Only athletes and coaches can delete their account"}), 403
 
+    # Delete the user document from Firestore
     user_ref.delete()
-    return jsonify({"success": True, "message": "Account deleted"})
+    
+    # Optionally, you could also delete related data here
+    # For example, delete athlete's reflections or coach's evaluations
+    if user_role == "athlete":
+        # Delete athlete's reflections
+        reflections = db.collection("reflections").where("user_id", "==", user_id).stream()
+        for reflection in reflections:
+            reflection.reference.delete()
+    elif user_role == "coach":
+        # Delete coach's evaluations
+        evaluations = db.collection("evaluations").where("coach_id", "==", user_id).stream()
+        for evaluation in evaluations:
+            evaluation.reference.delete()
 
+    return jsonify({"success": True, "message": f"{user_role.capitalize()} account deleted successfully"})
+    
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")

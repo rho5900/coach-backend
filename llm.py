@@ -70,10 +70,35 @@ IMPORTANT: Respond ONLY as the athlete. Do NOT include any instructions, explana
     # Clean up the response - remove any prompt instructions or extra text
     athlete_reply = raw_response.strip()
     
-    # Remove common AI instruction artifacts
+    # Remove common AI instruction artifacts and prompt leakage
     athlete_reply = athlete_reply.replace("You are an AI assistant", "").replace("You are simulating", "")
     athlete_reply = athlete_reply.replace("Remember to stay true to", "").replace("Athlete:", "")
     athlete_reply = athlete_reply.replace("Coach:", "").replace("Respond as the athlete", "")
+    athlete_reply = athlete_reply.replace("Human:", "").replace("Assistant:", "")
+    
+    # Remove third-person summaries and meta-commentary
+    if "the athlete" in athlete_reply.lower() or "athlete is" in athlete_reply.lower():
+        # Extract only first-person content before any third-person summary
+        lines = athlete_reply.split('\n')
+        first_person_lines = []
+        for line in lines:
+            if "the athlete" in line.lower() or "athlete is" in line.lower():
+                break
+            if line.strip() and not line.startswith(("Human:", "Assistant:", "Here's", "The athlete")):
+                first_person_lines.append(line.strip())
+        athlete_reply = " ".join(first_person_lines)
+    
+    # Remove any remaining instruction text
+    instruction_patterns = [
+        "Can you provide", "Can you give", "Here's a summary", "The athlete is",
+        "Based on the conversation", "To summarize", "In summary"
+    ]
+    for pattern in instruction_patterns:
+        if pattern in athlete_reply:
+            # Take only content before the instruction
+            parts = athlete_reply.split(pattern)
+            if len(parts) > 1:
+                athlete_reply = parts[0].strip()
     
     # Take only the first sentence or two
     sentences = athlete_reply.split('.')
@@ -81,10 +106,88 @@ IMPORTANT: Respond ONLY as the athlete. Do NOT include any instructions, explana
         athlete_reply = '. '.join(sentences[:2]) + '.'
     
     # Fallback if response is too short or contains instructions
-    if len(athlete_reply) < 10 or "AI" in athlete_reply or "assistant" in athlete_reply.lower():
+    if (len(athlete_reply) < 10 or "AI" in athlete_reply or "assistant" in athlete_reply.lower() or 
+        "human:" in athlete_reply.lower() or "the athlete" in athlete_reply.lower()):
         athlete_reply = "I'm doing okay, Coach. Thanks for asking."
     
     return athlete_reply.strip()
+
+
+def simulate_coach_response(profile, chat_history):
+    def format_chat(chat_history):
+        return "\n".join(
+            f"Coach: {msg['message']}" if msg['sender'] == 'coach' else f"Athlete: {msg['message']}"
+            for msg in chat_history
+            if msg['sender'] in ('coach', 'athlete')
+        )
+
+    prompt = f"""
+You are a supportive high school sports coach. Respond to your athlete naturally in 1-2 sentences.
+
+Athlete profile:
+- Age: {profile.get('age', 'N/A')}
+- Sport: {profile.get('sport', 'N/A')}
+- Anxiety Level: {profile.get('anxiety_level', 'N/A')}
+- Motivation Level: {profile.get('motivation_level', 'N/A')}
+- Context: {profile.get('context', 'N/A')}
+
+Conversation so far:
+{format_chat(chat_history)}
+
+IMPORTANT: Respond ONLY as the coach. Be supportive, encouraging, and professional. Do NOT include any instructions, explanations, or meta-text. Just give a natural response as if you're the coach talking to your athlete.
+"""
+
+    res = requests.post(
+        TOGETHER_URL,
+        headers={"Authorization": f"Bearer {TOGETHER_API_KEY}"},
+        json={"model": MODEL_NAME, "prompt": prompt, "max_tokens": 100}
+    )
+    raw_response = extract_text(res.json(), default="I understand. How can I help you improve?")
+    
+    # Clean up the response - remove any prompt instructions or extra text
+    coach_reply = raw_response.strip()
+    
+    # Remove common AI instruction artifacts and prompt leakage
+    coach_reply = coach_reply.replace("You are an AI assistant", "").replace("You are simulating", "")
+    coach_reply = coach_reply.replace("Remember to stay true to", "").replace("Coach:", "")
+    coach_reply = coach_reply.replace("Athlete:", "").replace("Respond as the coach", "")
+    coach_reply = coach_reply.replace("Human:", "").replace("Assistant:", "")
+    
+    # Remove third-person summaries and meta-commentary
+    if "the coach" in coach_reply.lower() or "coach is" in coach_reply.lower():
+        # Extract only first-person content before any third-person summary
+        lines = coach_reply.split('\n')
+        first_person_lines = []
+        for line in lines:
+            if "the coach" in line.lower() or "coach is" in line.lower():
+                break
+            if line.strip() and not line.startswith(("Human:", "Assistant:", "Here's", "The coach")):
+                first_person_lines.append(line.strip())
+        coach_reply = " ".join(first_person_lines)
+    
+    # Remove any remaining instruction text
+    instruction_patterns = [
+        "Can you provide", "Can you give", "Here's a summary", "The coach is",
+        "Based on the conversation", "To summarize", "In summary"
+    ]
+    for pattern in instruction_patterns:
+        if pattern in coach_reply:
+            # Take only content before the instruction
+            parts = coach_reply.split(pattern)
+            if len(parts) > 1:
+                coach_reply = parts[0].strip()
+    
+    # Take only the first sentence or two
+    sentences = coach_reply.split('.')
+    if len(sentences) > 2:
+        coach_reply = '. '.join(sentences[:2]) + '.'
+    
+    # Fallback if response is too short or contains instructions
+    if (len(coach_reply) < 10 or "AI" in coach_reply or "assistant" in coach_reply.lower() or 
+        "human:" in coach_reply.lower() or "the coach" in coach_reply.lower()):
+        coach_reply = "I understand. How can I help you improve?"
+    
+    return coach_reply.strip()
 
 
 def evaluate_coaching(profile, chat_history):
